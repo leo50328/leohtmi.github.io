@@ -1,41 +1,293 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HTMI 檔案操作工具 - 暗色模式</title>
-  <!-- 加入圖片作為網站小圖示 (favicon) -->
-  <link rel="icon" type="image/png" href="Line人物.png">
-  <style>
-    body {
-      background-color: #121212;
-      color: #f0f0f0;
-      font-family: "Microsoft JhengHei", sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 50px;
-    }
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-    }
-    header img {
-      width: 60px;
-      height: 60px;
-    }
-    h1 {
-      font-size: 28px;
-      margin: 0;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTMI 檔案操作工具 - 暗色模式</title>
+    <style>
+        /* 全黑主題樣式 */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #1e1e1e;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            color: #00bcd4;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        /* 檔案名稱區域樣式 */
+        .filename-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .filename-group label {
+            font-weight: bold;
+            margin-right: 10px;
+            white-space: nowrap;
+        }
+        #filename-base-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #3a3a3a;
+            border-radius: 5px 0 0 5px;
+            background-color: #252526;
+            color: #d4d4d4;
+            font-size: 16px;
+            box-sizing: border-box;
+            border-right: none;
+        }
+        #filename-ext-span {
+            padding: 10px;
+            background-color: #333;
+            color: #ccc;
+            border: 1px solid #3a3a3a;
+            border-radius: 0 5px 5px 0;
+            font-size: 16px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        /* 程式碼編輯區樣式 */
+        #editor {
+            width: 100%;
+            height: 400px;
+            padding: 15px;
+            box-sizing: border-box;
+            border: 1px solid #3a3a3a;
+            border-radius: 5px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            background-color: #252526;
+            color: #d4d4d4;
+            white-space: pre;
+        }
+
+        /* 按鈕顏色 */
+        .primary { background-color: #007acc; color: white; }
+        .primary:hover { background-color: #005f99; }
+        .secondary { background-color: #555555; color: white; }
+        .secondary:hover { background-color: #444444; }
+        .danger { background-color: #cc3333; color: white; }
+        .danger:hover { background-color: #992222; }
+    </style>
 </head>
 <body>
-  <header>
-    <img src="Line人物.png" alt="角色圖片">
-    <h1>HTMI 檔案操作工具 - 暗色模式</h1>
-  </header>
-  <p>這是一個示範頁面，圖片同時出現在標題和瀏覽器標籤。</p>
+
+<div class="container">
+    <h1>📄 HTMI 檔案操作工具</h1>
+    
+    <div class="filename-group">
+        <label for="filename-base-input">檔案名稱:</label>
+        <input type="text" id="filename-base-input" placeholder="請輸入主檔名 (例如：index)" value="index">
+        <span id="filename-ext-span">.html</span>
+    </div>
+
+    <div class="controls">
+        <button class="secondary" onclick="loadFromFile()">📥 匯入 HTMI 檔案</button>
+        <button class="secondary" onclick="exportToFile()">📤 匯出 HTMI 檔案</button>
+        <button class="secondary" onclick="newFile()">➕ 新增 HTMI 檔案</button>
+        <button class="danger" onclick="clearCode()">🗑️ 清除目前程式碼</button>
+        <button class="secondary" onclick="copyCode()">📋 複製目前程式碼</button>
+        <button class="primary" onclick="executeCode()">▶️ 執行 HTMI 檔案</button>
+    </div>
+
+    <textarea id="editor" placeholder="在此輸入您的 HTML, CSS, 和 JavaScript 程式碼..."></textarea>
+</div>
+
+<script>
+    const editor = document.getElementById('editor');
+    const filenameBaseInput = document.getElementById('filename-base-input');
+    const filenameExtSpan = document.getElementById('filename-ext-span');
+    
+    // 將副檔名定義為變數
+    const FILE_EXTENSION = '.html'; 
+
+    const localStorageCodeKey = 'current_html_code';
+    const localStorageFilenameKey = 'current_html_filename_base'; 
+
+    // Helper 函數：取得完整檔名 (主檔名 + 副檔名)
+    function getFullFilename() {
+        const base = filenameBaseInput.value.trim();
+        if (base === '') {
+            return 'index' + FILE_EXTENSION; // 確保有預設檔名
+        }
+        if (base.toLowerCase().endsWith(FILE_EXTENSION)) {
+             return base;
+        }
+        return base + FILE_EXTENSION;
+    }
+
+    // 1. 頁面載入時，從 localStorage 載入程式碼和主檔名
+    window.onload = function() {
+        // 設定顯示的副檔名
+        filenameExtSpan.textContent = FILE_EXTENSION; 
+        
+        const savedCode = localStorage.getItem(localStorageCodeKey);
+        const savedFilenameBase = localStorage.getItem(localStorageFilenameKey);
+        
+        // 載入程式碼
+        if (savedCode !== null) { 
+            editor.value = savedCode;
+        } else {
+            editor.value = ''; 
+        }
+        
+        // 載入主檔名，如果 LocalStorage 沒有，則使用 'index' 作為預設
+        if (savedFilenameBase) {
+            filenameBaseInput.value = savedFilenameBase;
+        } else {
+            filenameBaseInput.value = 'index'; // **這裡設定預設為 index**
+        }
+
+        // 任何編輯都會自動儲存
+        editor.addEventListener('input', saveCodeToLocalStorage);
+        filenameBaseInput.addEventListener('input', saveFilenameBaseToLocalStorage);
+    };
+
+    // 自動儲存程式碼到 Local Storage
+    function saveCodeToLocalStorage() {
+        localStorage.setItem(localStorageCodeKey, editor.value);
+    }
+    
+    // 自動儲存主檔名到 Local Storage
+    function saveFilenameBaseToLocalStorage() {
+        localStorage.setItem(localStorageFilenameKey, filenameBaseInput.value);
+    }
+
+    // 2. 執行 HTMI 檔案按鈕 (在新頁面執行)
+    function executeCode() {
+        const code = editor.value;
+        if (code.trim() === '') {
+            alert('編輯區沒有程式碼可以執行！請先輸入 HTML 內容。');
+            return;
+        }
+        const blob = new Blob([code], { type: 'text/html' });
+        const blobUrl = URL.createObjectURL(blob);
+        
+        window.open(blobUrl, '_blank');
+    }
+
+    // 3. 匯出 HTMI 檔案按鈕 (下載程式碼)
+    function exportToFile() {
+        const code = editor.value;
+        const filename = getFullFilename(); // 使用完整檔名
+        
+        const blob = new Blob([code], { type: 'text/html' });
+        const a = document.createElement('a');
+        
+        a.href = URL.createObjectURL(blob);
+        a.download = filename; 
+        
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        alert(`檔案已匯出為 "${filename}"！`);
+    }
+
+    // 4. 匯入 HTMI 檔案按鈕 (從使用者電腦上傳檔案)
+    function loadFromFile() {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.html, .htm, .txt';
+
+        fileInput.onchange = e => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = event => {
+                editor.value = event.target.result;
+                // 從匯入的完整檔名中移除副檔名，只保留主檔名到輸入框
+                const baseName = file.name.replace(/\.(html|htm|txt)$/i, '');
+                filenameBaseInput.value = baseName;
+
+                saveCodeToLocalStorage();
+                saveFilenameBaseToLocalStorage();
+                alert(`檔案 "${file.name}" 匯入成功！`);
+            };
+            reader.onerror = () => {
+                alert('匯入檔案失敗！');
+            };
+            reader.readAsText(file);
+        };
+        
+        fileInput.click();
+    }
+
+    // 5. 新增 HTMI 檔案按鈕 (只問主檔名，清空程式碼)
+    function newFile() {
+        const newFilenameBase = prompt("請輸入新檔案的主檔名 (例如：new_project)", "index"); // **這裡設定預設為 index**
+        
+        if (newFilenameBase === null) {
+            return; // 使用者按了取消
+        }
+
+        // 清空程式碼並更新主檔名
+        editor.value = '';
+        filenameBaseInput.value = newFilenameBase;
+
+        saveCodeToLocalStorage();
+        saveFilenameBaseToLocalStorage();
+        alert(`已創建新的檔案："${newFilenameBase + FILE_EXTENSION}"。`);
+    }
+
+    // 6. 清除目前程式碼按鈕 (只問一次)
+    function clearCode() {
+        const confirmClear = confirm("確定要清除目前編輯器中的所有程式碼嗎？此操作不可撤銷。");
+        if (confirmClear) {
+            editor.value = '';
+            saveCodeToLocalStorage();
+            alert("程式碼已清除。");
+        }
+    }
+
+    // 7. 複製 HTMI 檔案按鈕
+    function copyCode() {
+        editor.select();
+        try {
+            document.execCommand('copy');
+            alert('程式碼已複製到剪貼簿！');
+        } catch (err) {
+            navigator.clipboard.writeText(editor.value)
+                .then(() => alert('程式碼已複製到剪貼簿！'))
+                .catch(() => alert('複製失敗，請手動複製。'));
+        }
+    }
+
+</script>
+
 </body>
 </html>
